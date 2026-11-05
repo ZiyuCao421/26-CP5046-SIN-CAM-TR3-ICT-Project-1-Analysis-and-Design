@@ -79,8 +79,8 @@ Populate this table only from a completed notebook run.
 
 | Model | Accuracy | Macro precision | Macro recall | Macro F1 |
 | --- | ---: | ---: | ---: | ---: |
-| RBF SVC | To be generated | To be generated | To be generated | To be generated |
-| Random Forest | To be generated | To be generated | To be generated | To be generated |
+| RBF SVC | 0.1855 | 0.1741 | 0.1860 | 0.1722 |
+| Random Forest | 0.1613 | 0.1617 | 0.1616 | 0.1605 |
 
 ## Repository layout
 
