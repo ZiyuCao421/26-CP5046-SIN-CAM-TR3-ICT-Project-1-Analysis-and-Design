@@ -1,0 +1,7 @@
+rank,feature_set,mean_real_model_macro_f1,minimum_real_model_macro_f1,n_features
+1,ZIYU_FS2_svc_diverse,0.6376,0.5013,6
+2,ZIYU_FS3_random_forest_diverse,0.6356,0.4963,6
+3,ZIYU_FS1_consensus_compact,0.6265,0.5015,6
+4,SHAH_anova_top10,0.2193,0.1957,10
+5,SHAH_lasso_top10,0.2090,0.1654,10
+6,SHAH_random_forest_top10_proxy,0.1948,0.1398,10

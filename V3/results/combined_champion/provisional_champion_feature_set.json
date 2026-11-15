@@ -1,0 +1,11 @@
+{
+  "feature_set": "ZIYU_FS2_svc_diverse",
+  "features": ["avg_t", "max_y", "min_x", "VV2", "min_hv", "VV0"],
+  "ranking_row": {
+    "rank": 1,
+    "mean_real_model_macro_f1": 0.6376,
+    "minimum_real_model_macro_f1": 0.5013,
+    "n_features": 6
+  },
+  "status": "provisional held-out champion"
+}
