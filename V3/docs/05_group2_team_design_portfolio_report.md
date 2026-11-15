@@ -56,6 +56,10 @@ The team assumes that movement-derived summaries can provide useful evidence for
 
 **Prototype evidence:** Drive/path checking; raw CSV loading and merging; label creation; duplicate and missing-value checks; user-distribution chart; 2D trajectory matrix; interactive 3D trajectory visualisation; feature histograms; correlation heatmap; and train/test plots.
 
+![Shah Colab 2D trajectory matrix for Users 1 to 10](assets/shah_trajectory_matrix.png)
+
+*Figure 1. Shah's Colab trajectory matrix. This is upstream EDA evidence: it checks the structure and visual plausibility of the mouse paths before feature-set comparison.*
+
 **Sprint review:** This work established the data contract for downstream experiments. It showed why raw coordinates, timestamps, labels, and bookkeeping columns must be handled explicitly and why visual inspection is necessary before interpreting a model score.
 
 **Retrospective and next action:** The main risk is that raw coordinate or time fields may describe recording conditions rather than person-specific behaviour. These fields should be flagged or excluded from a restricted follow-up comparison rather than silently accepted as biometric evidence.
@@ -75,6 +79,10 @@ The team assumes that movement-derived summaries can provide useful evidence for
 **As a model-validation reviewer, I want Random Forest importance and L1-regularised selection to be compared with filter ranking, so that the team can identify robust candidates and reduce redundant signals.**
 
 **Prototype evidence:** Random Forest importance, SelectFromModel-style embedded selection, Lasso/Logistic Regression coefficients, and explanations of their different assumptions.
+
+![Shah Colab Lasso feature importance](assets/shah_lasso_feature_importance.png)
+
+*Figure 2. Shah's Colab Lasso/Logistic Regression ranking. The plot provides model-based candidate evidence; it does not by itself establish a final comparable champion set.*
 
 **Sprint review:** Tree-based and regularised methods bring complementary evidence: Random Forest can identify non-linear interactions, while L1 regularisation can shrink weaker linear signals. The result is a richer candidate pool, not an automatic final answer.
 
@@ -107,6 +115,14 @@ The team assumes that movement-derived summaries can provide useful evidence for
 **As an assessment product owner, I want every candidate set evaluated with fixed models and a fixed held-out split, so that the current selection decision is fair and reviewable.**
 
 **Prototype evidence:** `04_feature_set_evaluation_and_visualisation.ipynb`, parameter matrix, macro-F1 comparisons, results summaries, and `04_v3_complete_report.md`.
+
+![Ziyu GitHub V3 provisional feature set ranking](assets/ziyu_v3_feature_set_ranking.png)
+
+*Figure 3. Ziyu's GitHub V3 ranking of three correlation-controlled feature sets by the mean Macro F1 of RBF SVC and Random Forest.*
+
+![Ziyu GitHub V3 FS3 Random Forest result](assets/ziyu_v3_fs3_random_forest.png)
+
+*Figure 4. Ziyu's GitHub V3 FS3 result for the balanced Random Forest, shown against the majority-class baseline.*
 
 **Sprint review:** The three sets were evaluated with a majority-class DummyClassifier, training-only scaled RBF SVC, and 200-tree balanced Random Forest. Macro F1 was the primary measure; accuracy, macro precision, and macro recall were kept as secondary diagnostics.
 
@@ -169,14 +185,88 @@ The practical handoff contract was:
 - GitHub should store notebooks, configurations, aggregate outputs, reports, and figures; raw course data must remain outside the repository.
 - A strong held-out result on one split is useful for prioritisation but insufficient for real-world authentication claims.
 
-## 3.5 Future Roadmap and Next Sprint Priorities
+## 3.5 Preparation for the Combined Feature Set and Model Benchmark Notebook
 
-1. Repeat the V3 comparison across multiple random seeds and report score stability.
-2. Use session-aware or group-aware validation if recording/session identifiers are available.
-3. Run a restricted comparison excluding absolute position and time summaries to test recording-condition dependence.
-4. Define a separate claimed-user verification protocol before using specificity, false-accept, or false-reject language as deployment metrics.
-5. Only after a stable baseline is established, evaluate deep-learning or transfer-learning extensions under a separate reproducible protocol.
-6. Conduct real stakeholder interviews with students, academic-integrity staff, accessibility advisers, and IT support before designing any operational intervention.
+The next notebook will compare the feature sets produced by both developers without treating different data partitions, model configurations, or post-hoc selection steps as interchangeable. Its purpose is to answer two separate questions:
+
+1. **Feature-set question:** under one documented data contract, which declared feature set supports the strongest held-out Macro F1?
+2. **Model question:** for each declared feature set, which fixed model produces the strongest result?
+
+### Candidate-set registry
+
+| Registry name | Owner and provenance | Status in the combined notebook |
+|---|---|---|
+| `shah_anova_candidate` | Shah Colab filter ranking / SelectKBest | Reconstruct from recorded Colab-selected columns; validate every column before use. |
+| `shah_random_forest_candidate` | Shah Colab embedded Random Forest importance | Reconstruct from recorded Colab-selected columns; validate every column before use. |
+| `shah_lasso_candidate` | Shah Colab L1-regularised Logistic Regression ranking | Reconstruct from recorded Colab-selected columns; validate every column before use. |
+| `FS1_consensus_compact` | Ziyu GitHub V3 | Fixed six-column manifest already documented. |
+| `FS2_svc_diverse` | Ziyu GitHub V3 | Fixed six-column manifest already documented. |
+| `FS3_random_forest_diverse` | Ziyu GitHub V3 | Fixed six-column manifest already documented. |
+
+The three Shah entries must be saved as explicit feature-name lists, rather than copied from a chart manually. A candidate set is excluded with a clear error if a named column is missing, non-numeric, raw identifier, raw coordinate/time field, or not available after cohort construction.
+
+### Non-negotiable comparison contract
+
+| Contract item | Requirement |
+|---|---|
+| Raw input | Load the same approved course CSV folder and preserve source labels. Raw data stays in Drive/Colab, not GitHub. |
+| Cohort | Build one complete-case cohort across the union of all declared candidate columns. Report its row count and a split fingerprint. |
+| Split | Use one stratified 80/20 partition with a fixed `random_state`; no feature set receives its own convenient split. |
+| Core models | DummyClassifier, training-only scaled RBF SVC, and balanced Random Forest with fixed documented parameters. |
+| Optional extension models | Logistic Regression, KNN, and Gaussian Naive Bayes may be run only as separately labelled sensitivity models, never mixed silently into the core ranking. |
+| Primary metric | Macro F1 for each **model + feature-set** combination. |
+| Secondary diagnostics | Accuracy, macro precision, macro recall, confusion matrix, class counts, and failure/exclusion audit. |
+| Decision rule | Report the best pipeline, the best set within each model, and the mean of the two real core models as a stability summary. Do not use the mean to hide a weak individual model. |
+
+### Leakage and selection safeguards
+
+The combined notebook must distinguish **reproduction** from **clean validation**. Re-running the already selected V3 sets on the V3 split is a reproducibility check, not new independent validation. If Shah's selection procedures are rerun, SelectKBest, Random Forest importance, and Lasso must be fitted on the training partition only. A clean validation phase should regenerate each selection inside training data or use an untouched external/session-aware test set.
+
+### Required notebook outputs
+
+```text
+combined_feature_set_manifest.json
+combined_input_contract_report.md
+combined_metrics.csv
+combined_ranked_pipelines.csv
+combined_failure_and_exclusion_audit.csv
+figures/combined_macro_f1_heatmap.png
+figures/combined_model_by_set_bar_chart.png
+figures/combined_confusion_matrix_<winner>.png
+combined_limitations.md
+```
+
+### Reusable configuration skeleton
+
+```python
+FEATURE_SET_REGISTRY = {
+    "shah_anova_candidate": [...],
+    "shah_random_forest_candidate": [...],
+    "shah_lasso_candidate": [...],
+    "FS1_consensus_compact": ["max_y", "min_t", "min_x", "VV2", "VV0", "min_hv"],
+    "FS2_svc_diverse": ["avg_t", "max_y", "min_x", "VV2", "min_hv", "VV0"],
+    "FS3_random_forest_diverse": ["min_y", "VV0", "VV2", "min_hv", "min_t", "min_x"],
+}
+
+CORE_MODELS = {
+    "DummyClassifier": "most_frequent baseline",
+    "RBF_SVC": "StandardScaler + balanced RBF SVC",
+    "RandomForest": "200-tree balanced Random Forest",
+}
+```
+
+The `[...]` entries are deliberately not guessed. They must be exported from Shah's executed Colab output or re-derived in the training partition before the combined run.
+
+## 3.6 Future Roadmap and Next Sprint Priorities
+
+1. Export Shah's three candidate feature lists into a named manifest and validate them against the shared schema.
+2. Implement the combined notebook using the contract above; save all aggregate results and figures to GitHub.
+3. Repeat the comparison across multiple random seeds and report score stability.
+4. Use session-aware or group-aware validation if recording/session identifiers are available.
+5. Run a restricted comparison excluding absolute position and time summaries to test recording-condition dependence.
+6. Define a separate claimed-user verification protocol before using specificity, false-accept, or false-reject language as deployment metrics.
+7. Only after a stable baseline is established, evaluate deep-learning or transfer-learning extensions under a separate reproducible protocol.
+8. Conduct real stakeholder interviews with students, academic-integrity staff, accessibility advisers, and IT support before designing any operational intervention.
 
 ## Repository Evidence
 
