@@ -1,0 +1,187 @@
+{
+  "config_name": "v3_single_feature_screening",
+  "config_version": "2.0.0",
+  "stage": "V3 stage 1 - all-candidate single-feature screening",
+  "authoritative_source": "V3/notebooks/01_all_feature_screening.ipynb, cell headed 'SINGLE EDITABLE CONFIGURATION BLOCK'",
+  "note": "This file is the committed, reviewable mirror of the notebook configuration cell. The notebook cell is the authority at run time; if the two disagree, the notebook is used and this file must be updated in the same commit.",
+  "results_validity": "only valid after a real Colab run",
+  "data": {
+    "DATA_DIR": {
+      "value": "/content/drive/MyDrive/CP5046_Mouse_Dynamics",
+      "description": "Template Colab path for the folder holding the course CSV files. The only setting that normally must be edited. The path itself is never written to the run manifest.",
+      "editable": true
+    },
+    "FILE_PATTERN": {
+      "value": "*.csv",
+      "description": "Glob used to select the per-participant CSV files in DATA_DIR.",
+      "editable": true
+    },
+    "LABEL_COLUMN": {
+      "value": "label",
+      "description": "Name of the label column as it appears INSIDE the CSV files. Files without it are skipped and reported; the label is never derived from a file name. All participant files are merged before the class space is inspected, because a single file usually carries a single label.",
+      "editable": true
+    }
+  },
+  "reproducibility": {
+    "RANDOM_STATE": {
+      "value": 42,
+      "description": "Seed for the single stratified split and for the random forest.",
+      "editable": true
+    },
+    "TEST_SIZE": {
+      "value": 0.2,
+      "description": "Held-out fraction of the common cohort. The split is drawn once and shared by every candidate feature.",
+      "editable": true
+    }
+  },
+  "cohort": {
+    "SCREENING_COHORT_MODE": {
+      "value": "complete_case_all_candidates",
+      "description": "PRIMARY (default). One global complete-case cohort is built over all candidate columns and ONE stratified split is drawn on it, so every candidate feature is evaluated on exactly the same training rows, test rows and class space. The alternative value 'per_feature' rebuilds a sample and a split per feature; it is exploratory, is stamped 'not rankable', is never the default, and must not drive stage-2 selection.",
+      "editable": true
+    },
+    "cohort_definition": "Rows whose label is present, whose label class has at least MIN_CLASS_COUNT rows, and for which every candidate column is finite after numeric coercion (missing and +/-inf both count as missing). The number of removed rows and the reason for each removal are recorded in run_metadata.json.",
+    "split_fingerprint": "sha256 digest of the single shared split (row positions, seed, test size and cohort size). Recorded in single_feature_metrics.csv and run_metadata.json so that two runs can be compared without publishing the split itself.",
+    "failure_policy": "If the common cohort cannot be built or cannot be split in a stratified way, the run records the failure and produces NO primary ranking."
+  },
+  "quality_thresholds": {
+    "MIN_NON_MISSING_RATE": {
+      "value": 0.9,
+      "description": "A candidate column must have at least this share of usable (present, finite, numeric-coercible) values, otherwise it is excluded with reason insufficient_non_missing_rate.",
+      "editable": true
+    },
+    "MIN_CLASS_COUNT": {
+      "value": 5,
+      "description": "Minimum number of rows per label. Classes below this threshold are dropped before the cohort is built, because a stratified split cannot place them on both sides.",
+      "editable": true
+    },
+    "MIN_ROWS_PER_FEATURE": {
+      "value": 100,
+      "description": "Minimum usable rows before a candidate is screened at all. Below it the feature is recorded in single_feature_failures.csv.",
+      "editable": true
+    },
+    "MIN_COERCION_RATE": {
+      "value": 0.95,
+      "description": "Share of the non-null values of a text column that must convert to float, otherwise the column is excluded as not_numeric_or_safely_coercible.",
+      "editable": true
+    }
+  },
+  "output": {
+    "OUTPUT_DIR": {
+      "value": "/content/outputs/v3_single_feature",
+      "description": "Destination of the five aggregated artefacts. A Git checkout is refused as a target unless ALLOW_OUTPUT_IN_GIT_REPO is set to true. The path itself is never written to the run manifest.",
+      "editable": true
+    }
+  },
+  "exclusions": {
+    "EXCLUDED_COLUMNS": {
+      "value": [
+        "Unnamed: 0", "Unnamed: 1", "Unnamed: 2", "Unnamed: 3", "Unnamed: 4",
+        "index", "Index", "level_0",
+        "Seg_id"
+      ],
+      "description": "Exact column names dropped before the rule-based rules are applied. Compared case-insensitively. Holds the blank-header index column (read by pandas as 'Unnamed: 0') and the per-segment identifier 'Seg_id'.",
+      "editable": true
+    },
+    "PROTECTED_COLUMN_PATTERNS": {
+      "value": [
+        "^avg_[A-Za-z0-9_]+$",
+        "^min_[A-Za-z0-9_]+$",
+        "^max_[A-Za-z0-9_]+$",
+        "^(d|TV|HV|VV|A|AM|AV|J)\\d{0,2}$"
+      ],
+      "description": "Feature families that the NAME rules may never remove. Checked BEFORE the identifier / coordinate / timestamp rules, so that an uppercase name or a numeric suffix can never exclude a behavioural measure by accident. Covers avg_*, min_*, max_* and the per-point families d0-d2, TV0-TV2, HV0-HV2, VV0-VV2, A0-A2, AM0-AM2, AV0-AV2, J0-J2. The type, constant and completeness tests still apply to a protected column.",
+      "editable": true
+    },
+    "EXCLUDED_COLUMN_PATTERNS": {
+      "value": ["^unnamed", "^__index_level"],
+      "description": "Regular expressions for columns dropped by name pattern. Applied case-insensitively.",
+      "editable": true
+    },
+    "IDENTIFIER_COLUMN_PATTERNS": {
+      "value": [
+        "(^|_)(id|uid|pid|guid)$",
+        "(^|_)(user|participant|subject|person|student|patient)s?(_|$)",
+        "(^|_)(file|filename|source|src|origin|dataset|filepath|folder|path)s?(_|$)",
+        "(^|_)(session|recording|clip|run|trial|device|machine|site|lab)($|_)"
+      ],
+      "description": "Catches user, file, source and session identifiers, including the per-segment identifier Seg_id. The matched pattern is written to excluded_features.csv.",
+      "editable": true
+    },
+    "RAW_COORDINATE_PATTERNS": {
+      "value": ["^(x|xs|xx|y|ys|yy|pos|position|coord|coords|px|py)(_?\\d*)$"],
+      "description": "Catches raw screen coordinates: x0-x2, y0-y2 and the like. They encode the recording rather than the participant.",
+      "editable": true
+    },
+    "TIMESTAMP_PATTERNS": {
+      "value": [
+        "^(t|ts|time|timestamp|datetime|date|epoch|unix_time)$",
+        "^t\\d+$",
+        "(^|_)(timestamp|datetime|epoch|unix|utc|local_time|collect(ed|ion)?_time)(_|$)"
+      ],
+      "description": "Catches raw time values: t0-t2, t, timestamp, datetime and the like. They encode acquisition order rather than behaviour.",
+      "editable": true
+    }
+  },
+  "safety_switches": {
+    "ALLOW_OUTPUT_IN_GIT_REPO": {
+      "value": false,
+      "description": "Must stay false unless a deliberate decision is made to keep course-derived tables inside the repository. Aggregated artefacts that are to be kept are copied in by hand after inspection.",
+      "editable": false
+    },
+    "INCLUDE_SOURCE_FILE_NAMES": {
+      "value": false,
+      "description": "Must stay false: the file names are participant-linked.",
+      "editable": false
+    },
+    "INCLUDE_LABEL_VALUES": {
+      "value": false,
+      "description": "Must stay false: the labels identify participants.",
+      "editable": false
+    }
+  },
+  "models": {
+    "DummyClassifier_most_frequent": {
+      "role": "majority-class baseline and the floor every other model must clear",
+      "hyperparameters": {"strategy": "most_frequent"}
+    },
+    "RBF_SVC_scaled": {
+      "role": "non-linear margin-based baseline",
+      "hyperparameters": {"C": 1.0, "gamma": "scale", "class_weight": "balanced"},
+      "preprocessing": "StandardScaler inside a Pipeline, fitted on the training portion only"
+    },
+    "RandomForest_balanced": {
+      "role": "tree-based comparison",
+      "hyperparameters": {"n_estimators": 200, "random_state": 42, "class_weight": "balanced"}
+    }
+  },
+  "metrics": [
+    "accuracy",
+    "macro_precision",
+    "macro_recall",
+    "macro_f1",
+    "n_train",
+    "n_test",
+    "n_classes_common",
+    "n_train_common",
+    "n_test_common",
+    "cohort_mode"
+  ],
+  "required_output_fields": [
+    "cohort_mode",
+    "n_rows_before_cohort",
+    "n_rows_common_cohort",
+    "n_train_common",
+    "n_test_common",
+    "n_classes_common",
+    "split_fingerprint",
+    "results_validity"
+  ],
+  "outputs": [
+    "feature_inventory.csv",
+    "excluded_features.csv",
+    "single_feature_metrics.csv",
+    "single_feature_failures.csv",
+    "run_metadata.json"
+  ]
+}
