@@ -1,107 +1,133 @@
-# Mouse Dynamics: Lightweight Three-Feature User Identification
+# Mouse Dynamics Behavioural Biometrics — Analysis and Design
 
-> **Status:** implementation guide. This README is a project reference, not evidence of executed results. The final, run notebook is the source of truth for the dataset version, preprocessing, figures, metrics, and conclusions.
+> **CP5046 ICT Project 1 · Group 2**
+> **Current outcome:** `ZIYU_FS2_svc_diverse` with a 200-tree class-balanced Random Forest is the **provisional held-out recommendation** (Macro F1 = **0.7740**).
 
-## Project overview
+## Project purpose
 
-This repository contains a deliberately lightweight mouse-dynamics experiment for **multi-class user identification**. Each observation is a short three-point mouse-movement segment. The task is to predict one of the available user labels from just three interpretable, movement-derived features.
+This repository documents a staged, reproducible investigation of whether engineered mouse-movement features can distinguish user labels in a course mouse-dynamics dataset. The work is framed as a classroom-scale **multi-class user-identification experiment**. It is not a deployed authentication system, a cheating detector, or evidence of performance in live examinations.
 
-The project is designed as a compact alternative to a larger feature-selection and deep-learning workflow. It prioritises a transparent baseline that can be inspected, reproduced, and honestly evaluated before more complex methods are considered.
-
-## Research question
-
-To what extent can a small, interpretable feature set derived from mouse movement distinguish between users in the supplied three-point-segment dataset?
-
-This is an exploratory classification exercise. It does **not** by itself establish that the method is suitable for real-world authentication or fraud detection.
-
-## Selected features
-
-| Column | Meaning in this project | Why retain it |
-| --- | --- | --- |
-| `avg_d` | Average movement-distance feature for a segment | Represents movement magnitude. |
-| `avg_tv` | Dataset's average velocity-related (`TV`) feature | Represents movement speed. |
-| `avg_a` | Average acceleration feature for a segment | Represents how movement changes over time. |
-
-Together, these features represent a compact **distance–speed–acceleration** description of a segment. The exact feature definitions remain those supplied by the dataset/notebook.
-
-### Why not use raw timestamps or coordinates?
-
-The reference notebook contains raw point values such as `x0`, `y0`, and `t0`. This lightweight version intentionally avoids them: absolute coordinates may reflect screen/layout conditions, and absolute timestamps or collection order can introduce leakage that inflates a random-split result. The chosen three features are derived behavioural summaries and are easier to justify.
-
-## Data
-
-Use the course-provided mouse-dynamics CSV files, available from the [shared data folder](https://drive.google.com/drive/folders/1hAYr22yo8wWvUvJF88JZfNQvgHlL7hxW). The reference data layout uses files similar to:
+The project deliberately progresses from a small, explainable prototype to an auditable feature-selection workflow:
 
 ```text
-User1_Calib_3MouseMovement_MCQ_Segment.csv
-...
-User10_Calib_3MouseMovement_MCQ_Segment.csv
+V2: three-feature baseline
+        ↓
+V3: screen all eligible features → shortlist → correlation control → evaluate sets
+        ↓
+V3.5: compare Shah and Ziyu feature sets under one shared evaluation contract
+        ↓
+Provisional held-out recommendation
 ```
 
-The final notebook should validate that these columns exist before modelling:
+## Final combined result
+
+Six declared feature sets were tested on the same 2,002-row, 9-class complete-case cohort with the same stratified 80/20 split (1,601 training rows / 401 held-out rows), unchanged models and Macro F1 as the primary measure.
+
+### Champion feature set
+
+**`ZIYU_FS2_svc_diverse`**
+
+`avg_t`, `max_y`, `min_x`, `VV2`, `min_hv`, `VV0`
+
+FS2 was selected using the pre-declared rule: highest **mean Macro F1 across the two real models**.
+
+| Model | Held-out Macro F1 |
+| --- | ---: |
+| DummyClassifier (most frequent) | 0.0342 |
+| Scaled RBF SVC | 0.5013 |
+| 200-tree balanced Random Forest | **0.7740** |
+| **Mean of the two real models** | **0.6376** |
+
+### Recommended model
+
+The recommended model is:
 
 ```python
-REQUIRED_COLUMNS = ["avg_d", "avg_tv", "avg_a", "label"]
+RandomForestClassifier(
+    n_estimators=200,
+    class_weight="balanced",
+    random_state=42,
+)
 ```
 
-Do not commit course data, participant data, or identifying information to a public repository.
+With FS2, it achieved accuracy = **0.7606**, macro precision = **0.7948**, macro recall = **0.7643**, and macro F1 = **0.7740** on the fixed held-out portion.
 
-## Reproducible workflow
+### Important interpretation boundary
 
-1. Set one editable `DATA_DIR` path in the notebook.
-2. Load and concatenate the available user CSV files; remove export-only columns such as `Unnamed: 0` when present.
-3. Validate the label and all three selected features; coerce only the selected features to numeric and report rows removed because of missing or infinite values.
-4. Explore class counts and the distributions/correlation of the three features.
-5. Make a stratified 80/20 train–test split with `random_state=42`.
-6. Fit a `StandardScaler` on training data only, then evaluate an RBF Support Vector Classifier (SVC).
-7. Evaluate a Random Forest classifier as a nonlinear tree-based comparison.
-8. Report accuracy, macro precision, macro recall, macro F1, a classification report, and confusion matrices.
-9. Record the best model **only after execution** and interpret errors without overstating the result.
+`ZIYU_FS3_random_forest_diverse` paired with Random Forest produced the highest **single** model–set Macro F1 (0.7749). FS2 remains the feature-set champion because the declared ranking rule uses performance across **both** RBF SVC and Random Forest: FS2 = 0.6376 versus FS3 = 0.6356. The margin is small, so this is a **provisional held-out decision**, not a generalisation or deployment claim.
 
-## Models
+## Workflow
 
-| Model | Role | Notes |
+| Version / stage | Purpose | Main evidence |
 | --- | --- | --- |
-| RBF SVC | scaled margin-based baseline | Uses `StandardScaler` fitted on training data only. |
-| Random Forest | nonlinear, tree-based comparison | Provides a robust small-data comparison without scaling. |
+| **V2** | Lightweight, explainable baseline using `avg_d`, `avg_tv` and `avg_a`. | [V2 guide](V2/README%20(2).md) and executed verification notebook. |
+| **V3 Stage 1** | Screen every eligible numeric feature under a repeatable contract. | 57 eligible features; 13 non-feature/leakage/bookkeeping columns excluded. |
+| **V3 Stage 2** | Visualise single-feature outputs and create a transparent shortlist. | 12 candidates retained. |
+| **V3 Stage 3** | Use Pearson and Spearman correlation to document redundancy and define sets. | 66 pairs checked; 9 redundant pairs at the stated threshold. |
+| **V3 Stage 4** | Compare FS1, FS2 and FS3 with unchanged models. | [V3 complete report](V3/docs/04_v3_complete_report.md). |
+| **V3.5** | Compare three Shah candidate sets and three Ziyu V3 sets under one shared contract. | Current combined recommendation reported above. |
 
-The notebook should keep hyperparameters modest and explicit. Hyperparameter tuning is out of scope unless it is added as a documented, separately evaluated extension.
+## Feature-set sources
 
-## Evaluation
+### Shah Htet Naing — exploratory candidate sets
 
-This is a multi-class identification task, so macro-averaged metrics matter: they give each user equal weight even if class counts differ. A confusion matrix should be used to identify which user labels are most often confused.
+- **ANOVA / SelectKBest Top-10:** univariate separation ranking.
+- **Random Forest Top-10 proxy:** displayed feature-importance ranking; the full original SelectFromModel output contained 19 columns and is not represented as a complete set here.
+- **Lasso Top-10:** L1 Logistic Regression ranking.
 
-The project should **not** report a single false-positive rate as though this were a binary authentication task. If the problem is later redesigned as claimed-user verification, define the positive class and use appropriate verification measures (for example, FAR/FRR) with a separate protocol.
+These methods provide useful candidate evidence, but individual importance ranks are not treated as final winners until evaluated under the shared V3.5 cohort, split, models and metric.
 
-### Result table
+### Ziyu Cao — correlation-controlled sets
 
-Populate this table only from a completed notebook run.
+- `FS1_consensus_compact`
+- `FS2_svc_diverse` **← current feature-set champion**
+- `FS3_random_forest_diverse`
 
-| Model | Accuracy | Macro precision | Macro recall | Macro F1 |
-| --- | ---: | ---: | ---: | ---: |
-| RBF SVC | 0.1855 | 0.1741 | 0.1860 | 0.1722 |
-| Random Forest | 0.1613 | 0.1617 | 0.1616 | 0.1605 |
+The V3 workflow and its audit trail are described in the [team design portfolio report](V3/docs/05_group2_team_design_portfolio_report.md).
 
-## Repository layout
+## Data and evaluation contract
+
+| Item | Applied setting |
+| --- | --- |
+| Input files | Course-provided `UserN_Calib_3MouseMovement_MCQ_Segment.csv` files |
+| Observed data used in combined run | 10 files, 2,002 rows, 70 source columns, 9 observed user labels |
+| Raw data location | Course Google Drive only — not committed to this repository |
+| Split | Stratified 80/20; `random_state=42` |
+| Baseline | `DummyClassifier(strategy="most_frequent")` |
+| Real models | Training-only scaled RBF SVC; 200-tree class-balanced Random Forest |
+| Primary metric | Macro F1 |
+| Secondary diagnostics | Accuracy, macro precision and macro recall |
+
+Raw `x0–x2`, `y0–y2` and `t0–t2` coordinate/time columns are not used as combined feature-set inputs. They can encode layout or acquisition conditions rather than transferable behavioural identity signals.
+
+## Repository structure
 
 ```text
 .
+├── V2/                         # Lightweight three-feature prototype
+├── V3/
+│   ├── notebooks/               # Reusable four-stage Colab workflow
+│   ├── configs/                 # Screening configuration
+│   ├── docs/                    # Methods, reports, portfolio evidence
+│   └── results/                 # Aggregate outputs and result guidance
 ├── Mouse_Dynamics_Lightweight_3_Features.ipynb
-├── README.md
-└── requirements.txt                 # optional, if the project is exported from Colab
+└── README.md
 ```
 
-Typical dependencies are `numpy`, `pandas`, `matplotlib`, `seaborn`, and `scikit-learn`.
+## Reproducibility and responsible use
 
-## Limitations and responsible use
+- Run notebooks in Google Colab after mounting the authorised course-data folder.
+- Keep data paths configurable; do not commit raw CSV files, participant data or identifiers.
+- Preserve configurations, manifests, aggregate metrics, figures and limitation statements alongside each run.
+- Do not present a fixed-split classroom result as a production fraud-detection claim.
+- A stronger future validation would use repeated splits plus session-, participant- or device-aware grouping where those identifiers are available.
 
-- A random segment-level split may place related movements from one recording session in both train and test data. If session/recording identifiers become available, compare against a group- or session-based split.
-- Performance can be influenced by device, screen geometry, task context, sampling rate, and data imbalance.
-- Mouse dynamics are behavioural biometric data. Store and share the data responsibly and follow course and institutional requirements.
-- The notebook is written independently for this project. The supplied reference notebook informs dataset understanding only; it is not copied as the implementation.
+## Related project evidence
 
-## Reference material
+- [V3 complete technical report](V3/docs/04_v3_complete_report.md)
+- [Group 2 team design portfolio report](V3/docs/05_group2_team_design_portfolio_report.md)
+- [Feature-set evaluation plan](V3/docs/03_feature_set_evaluation_plan.md)
 
-- Course sample/documentation example: [Google Colab example](https://colab.research.google.com/drive/1J36r0VPZt6JI9g8DUiH0zeeAU82tzpAF)
-- Feature-selection background: [scikit-learn feature selection documentation](https://scikit-learn.org/stable/modules/feature_selection.html)
+---
 
+**Summary:** The project evolved from a transparent three-feature baseline into an auditable screening and feature-set evaluation pipeline. Under the current shared held-out comparison, **FS2 + a balanced Random Forest** is the most defensible provisional recommendation.
